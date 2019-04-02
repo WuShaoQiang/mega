@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 
 	"github.com/WuShaoQiang/mega/vm"
 )
@@ -174,4 +175,36 @@ func checkRegister(username, email, pwd1, pwd2 string) []string {
 // addUser()
 func addUser(username, password, email string) error {
 	return vm.AddUser(username, password, email)
+}
+
+func setFlash(w http.ResponseWriter, r *http.Request, message string) {
+	session, _ := store.Get(r, sessionName)
+	session.AddFlash(message, flashName)
+	session.Save(r, w)
+}
+
+func getFlash(w http.ResponseWriter, r *http.Request) string {
+	session, _ := store.Get(r, sessionName)
+	fm := session.Flashes(flashName)
+	if fm == nil {
+		return ""
+	}
+	session.Save(r, w)
+	return fmt.Sprintf("%v", fm[0])
+}
+
+func getPage(r *http.Request) int {
+	url := r.URL
+	query := url.Query()
+
+	q := query.Get("page")
+	if q == "" {
+		return 1
+	}
+
+	page, err := strconv.Atoi(q)
+	if err != nil {
+		return 1
+	}
+	return page
 }

@@ -10,13 +10,17 @@ var (
 	homeController home
 	templates      map[string]*template.Template
 	sessionName    string
+	flashName      string
 	store          *sessions.CookieStore
+	pageLimit      int
 )
 
 func init() {
 	templates = populateTemplates()
 	store = sessions.NewCookieStore([]byte("secret"))
 	sessionName = "mega"
+	flashName = "go-flash"
+	pageLimit = 5
 }
 
 // Startup func

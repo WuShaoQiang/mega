@@ -17,6 +17,8 @@ func (h home) registerRoutes() {
 	r.HandleFunc("/logout", middleAuth(logoutHandler))
 	r.HandleFunc("/login", loginHandler)
 	r.HandleFunc("/register", registerHandler)
+	r.HandleFunc("/follow/{username}", middleAuth(followHandler))
+	r.HandleFunc("/unfollow/{username}", middleAuth(unFollowHandler))
 	r.HandleFunc("/user/{username}", middleAuth(profileHandler))
 	r.HandleFunc("/profile_edit", middleAuth(profileEditHandler))
 	r.HandleFunc("/", middleAuth(indexHandler))
@@ -31,8 +33,29 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("indexHandler err :", err)
 	}
-	v := vop.GetVM(username)
-	templates[tpName].Execute(w, &v)
+
+	if r.Method == http.MethodGet {
+		flash := getFlash(w, r)
+		v := vop.GetVM(username, flash)
+		templates[tpName].Execute(w, &v)
+	}
+	if r.Method == http.MethodPost {
+		r.ParseForm()
+		body := r.Form.Get("body")
+		errMessage := checkLen("Post", body, 1, 180)
+		if errMessage != "" {
+			setFlash(w, r, errMessage)
+		} else {
+			err := vm.CreatePost(username, body)
+			if err != nil {
+				log.Println("indexHandler err : ", err)
+				w.Write([]byte("index post err"))
+				return
+			}
+		}
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
+
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -130,4 +153,37 @@ func profileEditHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, fmt.Sprintf("/user/%s", username), http.StatusSeeOther)
 	}
+}
+
+func followHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pUser := vars["username"]
+	sUser, _ := getSessionUser(r)
+
+	err := vm.Follow(sUser, pUser)
+	if err != nil {
+		log.Println("Follow err: ", err)
+		w.Write([]byte("Error in Follow"))
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/user/%s", pUser), http.StatusSeeOther)
+}
+
+func unFollowHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	pUser := vars["username"]
+	sUser, err := getSessionUser(r)
+	if err != nil {
+		log.Println("Error in Unfollow : ", err)
+		w.Write([]byte("Error in Unfollow"))
+		return
+	}
+
+	err = vm.UnFollow(sUser, pUser)
+	if err != nil {
+		log.Println("Error in Unfollow : ", err)
+		w.Write([]byte("Error in Unfollow"))
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/user/%s", pUser), http.StatusSeeOther)
 }

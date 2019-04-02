@@ -10,13 +10,14 @@ import (
 type IndexViewModel struct {
 	BaseViewModel
 	Posts []model.Post
+	Flash string
 }
 
 // IndexViewModelOp struct
 type IndexViewModelOp struct{}
 
-// GetVM func
-func (IndexViewModelOp) GetVM(username string) IndexViewModel {
+// GetVM func return a specific IndexViewModel
+func (IndexViewModelOp) GetVM(username, flash string) IndexViewModel {
 	u1, err := model.GetUserByUsername(username)
 	if err != nil {
 		fmt.Println(err)
@@ -25,7 +26,12 @@ func (IndexViewModelOp) GetVM(username string) IndexViewModel {
 	if err != nil {
 		fmt.Println(err)
 	}
-	v := IndexViewModel{BaseViewModel{Title: "Homepage"}, *posts}
+	v := IndexViewModel{BaseViewModel{Title: "Homepage"}, *posts, flash}
 	v.SetCurrentUser(username)
 	return v
+}
+
+func CreatePost(username, post string) error {
+	u, _ := model.GetUserByUsername(username)
+	return u.CreatePost(post)
 }
