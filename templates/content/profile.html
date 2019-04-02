@@ -1,15 +1,19 @@
 {{define "content"}}
-     <table>
+    <table>
         <tr valign="top">
             <td><img src="{{.ProfileUser.Avatar}}&s=128"></td>
             <td>
                 <h1>User: {{.ProfileUser.Username}}</h1>
                 {{if .ProfileUser.AboutMe}}
-                    <p>{{ .ProfileUser.AboutMe }}</p>
+                    <p><pre>{{ .ProfileUser.AboutMe }}</pre></p>
                 {{end}}
                 
                 {{if .ProfileUser.LastSeen}}
                     <p>Last seen on: {{ .ProfileUser.LastSeen }}</p>
+                {{end}}
+
+                {{if .Editable}}
+                    <p><a href="/profile_edit">Edit your profile</a></p>
                 {{end}}
             </td>
         </tr>
