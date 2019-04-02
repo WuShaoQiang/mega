@@ -1,5 +1,11 @@
 package vm
 
+import (
+	"fmt"
+
+	"github.com/WuShaoQiang/mega/model"
+)
+
 // LoginViewModel struct
 type LoginViewModel struct {
 	BaseViewModel
@@ -18,4 +24,14 @@ func (LoginViewModelOp) GetVM() LoginViewModel {
 
 func (v *LoginViewModel) AddError(errs ...string) {
 	v.Errs = append(v.Errs, errs...)
+}
+
+//CheckLogin func
+func CheckLogin(username, password string) bool {
+	user, err := model.GetUserByUsername(username)
+	if err != nil {
+		fmt.Printf("Can't not fine user : %s\n", username)
+		return false
+	}
+	return user.CheckPassword(password)
 }

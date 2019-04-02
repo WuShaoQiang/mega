@@ -9,7 +9,6 @@ import (
 // IndexViewModel struct
 type IndexViewModel struct {
 	BaseViewModel
-	model.User
 	Posts []model.Post
 }
 
@@ -17,8 +16,8 @@ type IndexViewModel struct {
 type IndexViewModelOp struct{}
 
 // GetVM func
-func (IndexViewModelOp) GetVM() IndexViewModel {
-	u1, err := model.GetUserByUsername("rene")
+func (IndexViewModelOp) GetVM(username string) IndexViewModel {
+	u1, err := model.GetUserByUsername(username)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -26,6 +25,7 @@ func (IndexViewModelOp) GetVM() IndexViewModel {
 	if err != nil {
 		fmt.Println(err)
 	}
-	v := IndexViewModel{BaseViewModel{Title: "Homepage"}, *u1, *posts}
+	v := IndexViewModel{BaseViewModel{Title: "Homepage"}, *posts}
+	v.SetCurrentUser(username)
 	return v
 }

@@ -1,7 +1,11 @@
 package controller
 
 import (
+	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 
 	"github.com/WuShaoQiang/mega/vm"
 )
@@ -9,14 +13,25 @@ import (
 type home struct{}
 
 func (h home) registerRoutes() {
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/login", loginHandler)
+	r := mux.NewRouter()
+	r.HandleFunc("/logout", middleAuth(logoutHandler))
+	r.HandleFunc("/login", loginHandler)
+	r.HandleFunc("/register", registerHandler)
+	r.HandleFunc("/user/{username}", middleAuth(profileHandler))
+	r.HandleFunc("/", middleAuth(indexHandler))
+
+	http.Handle("/", r)
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	tpName := "index.html"
 	vop := vm.IndexViewModelOp{}
-	v := vop.GetVM()
-	templates["index.html"].Execute(w, &v)
+	username, err := getSessionUser(r)
+	if err != nil {
+		log.Println("indexHandler err :", err)
+	}
+	v := vop.GetVM(username)
+	templates[tpName].Execute(w, &v)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -30,28 +45,67 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		username := r.Form.Get("username")
 		password := r.Form.Get("password")
-		if len(username) < 3 {
-			v.AddError("username must longer than 3")
-		}
 
-		if len(password) < 6 {
-			v.AddError("password must longer than 6")
-		}
-
-		if !check(username, password) {
-			v.AddError("username password not correct, please input again")
-		}
+		errs := checkLogin(username, password)
+		v.AddError(errs...)
 		if len(v.Errs) > 0 {
 			templates[tpName].Execute(w, &v)
 		} else {
+			setSessionUser(w, r, username)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 		}
 	}
 }
 
-func check(username, password string) bool {
-	if username == "shelljo" && password == "123" {
-		return true
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	tpName := "register.html"
+	vop := vm.RegisterViewModelOp{}
+	v := vop.GetVM()
+
+	if r.Method == http.MethodGet {
+		templates[tpName].Execute(w, &v)
 	}
-	return false
+	if r.Method == http.MethodPost {
+		r.ParseForm()
+		username := r.Form.Get("username")
+		email := r.Form.Get("email")
+		pwd1 := r.Form.Get("pwd1")
+		pwd2 := r.Form.Get("pwd2")
+
+		errs := checkRegister(username, email, pwd1, pwd2)
+		v.AddError(errs...)
+
+		if len(v.Errs) > 0 {
+			templates[tpName].Execute(w, &v)
+		} else {
+			if err := addUser(username, pwd1, email); err != nil {
+				log.Println("add User error:", err)
+				w.Write([]byte("Error insert database"))
+				return
+			}
+			setSessionUser(w, r, username)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+		}
+	}
+}
+
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	clearSession(w, r)
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func profileHandler(w http.ResponseWriter, r *http.Request) {
+	tpName := "profile.html"
+	vars := mux.Vars(r)
+	pUser := vars["username"]
+	sUser, _ := getSessionUser(r)
+	vop := vm.ProfileViewModelOp{}
+	v, err := vop.GetVM(sUser, pUser)
+	if err != nil {
+		msg := fmt.Sprintf("user (%s) does not exist", pUser)
+		w.Write([]byte(msg))
+		return
+	}
+	templates[tpName].Execute(w, &v)
+
 }
