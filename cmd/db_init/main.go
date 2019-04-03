@@ -9,6 +9,8 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
 
+//pointless comments
+
 func main() {
 	log.Println("DB Init ...")
 	db := model.ConnectToDB()
