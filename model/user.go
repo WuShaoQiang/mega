@@ -197,7 +197,7 @@ func UpdateUserByUsername(username string, contents map[string]interface{}) erro
 
 // UpdateLastSeen func
 func UpdateLastSeen(username string) error {
-	contents := map[string]interface{}{"last_seen": time.Now()}
+	contents := map[string]interface{}{"last_seen": time.Now().Add(8 * time.Hour)}
 	return UpdateUserByUsername(username, contents)
 }
 
@@ -211,4 +211,12 @@ func UpdateAboutMe(username, text string) error {
 func UpdatePassword(username, password string) error {
 	contents := map[string]interface{}{"password_hash": Md5(password)}
 	return UpdateUserByUsername(username, contents)
+}
+
+// FormattedLastSeen return the format of time
+// String returns the time formatted using the format string
+//	"2006-01-02 15:04:05.999999999 -0700 MST"
+// 一定要按照这个时间来
+func (u *User) FormattedLastSeen() string {
+	return u.LastSeen.Format("2006-01-02 15:04:05")
 }
