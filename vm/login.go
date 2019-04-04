@@ -1,7 +1,7 @@
 package vm
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/WuShaoQiang/mega/model"
 )
@@ -10,6 +10,11 @@ import (
 type LoginViewModel struct {
 	BaseViewModel
 	Errs []string
+}
+
+// AddError func
+func (v *LoginViewModel) AddError(errs ...string) {
+	v.Errs = append(v.Errs, errs...)
 }
 
 // LoginViewModelOp strutc
@@ -22,15 +27,12 @@ func (LoginViewModelOp) GetVM() LoginViewModel {
 	return v
 }
 
-func (v *LoginViewModel) AddError(errs ...string) {
-	v.Errs = append(v.Errs, errs...)
-}
-
-//CheckLogin func
+// CheckLogin func
 func CheckLogin(username, password string) bool {
 	user, err := model.GetUserByUsername(username)
 	if err != nil {
-		fmt.Printf("Can't not fine user : %s\n", username)
+		log.Println("Can not find username: ", username)
+		log.Println("Error:", err)
 		return false
 	}
 	return user.CheckPassword(password)

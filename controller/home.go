@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 
@@ -17,10 +19,13 @@ func (h home) registerRoutes() {
 	r.HandleFunc("/logout", middleAuth(logoutHandler))
 	r.HandleFunc("/login", loginHandler)
 	r.HandleFunc("/register", registerHandler)
+	r.HandleFunc("/user/{username}", middleAuth(profileHandler))
 	r.HandleFunc("/follow/{username}", middleAuth(followHandler))
 	r.HandleFunc("/unfollow/{username}", middleAuth(unFollowHandler))
-	r.HandleFunc("/user/{username}", middleAuth(profileHandler))
 	r.HandleFunc("/profile_edit", middleAuth(profileEditHandler))
+	r.HandleFunc("/explore", middleAuth(exploreHandler))
+	r.HandleFunc("/reset_password_request", resetPasswordRequestHandler)
+	r.HandleFunc("/reset_password/{token}", resetPasswordHandler)
 	r.HandleFunc("/", middleAuth(indexHandler))
 
 	http.Handle("/", r)
@@ -29,14 +34,11 @@ func (h home) registerRoutes() {
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	tpName := "index.html"
 	vop := vm.IndexViewModelOp{}
-	username, err := getSessionUser(r)
-	if err != nil {
-		log.Println("indexHandler err :", err)
-	}
-
+	page := getPage(r)
+	username, _ := getSessionUser(r)
 	if r.Method == http.MethodGet {
 		flash := getFlash(w, r)
-		v := vop.GetVM(username, flash)
+		v := vop.GetVM(username, flash, page, pageLimit)
 		templates[tpName].Execute(w, &v)
 	}
 	if r.Method == http.MethodPost {
@@ -48,20 +50,20 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			err := vm.CreatePost(username, body)
 			if err != nil {
-				log.Println("indexHandler err : ", err)
-				w.Write([]byte("index post err"))
+				log.Println("add Post error:", err)
+				w.Write([]byte("Error insert Post in database"))
 				return
 			}
 		}
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
-
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	tpName := "login.html"
 	vop := vm.LoginViewModelOp{}
 	v := vop.GetVM()
+
 	if r.Method == http.MethodGet {
 		templates[tpName].Execute(w, &v)
 	}
@@ -72,6 +74,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		errs := checkLogin(username, password)
 		v.AddError(errs...)
+
 		if len(v.Errs) > 0 {
 			templates[tpName].Execute(w, &v)
 		} else {
@@ -115,7 +118,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	clearSession(w, r)
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 }
 
 func profileHandler(w http.ResponseWriter, r *http.Request) {
@@ -123,10 +126,11 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pUser := vars["username"]
 	sUser, _ := getSessionUser(r)
+	page := getPage(r)
 	vop := vm.ProfileViewModelOp{}
-	v, err := vop.GetVM(sUser, pUser)
+	v, err := vop.GetVM(sUser, pUser, page, pageLimit)
 	if err != nil {
-		msg := fmt.Sprintf("user (%s) does not exist", pUser)
+		msg := fmt.Sprintf("user ( %s ) does not exist", pUser)
 		w.Write([]byte(msg))
 		return
 	}
@@ -139,16 +143,19 @@ func profileEditHandler(w http.ResponseWriter, r *http.Request) {
 	vop := vm.ProfileEditViewModelOp{}
 	v := vop.GetVM(username)
 	if r.Method == http.MethodGet {
-		templates[tpName].Execute(w, &v)
+		err := templates[tpName].Execute(w, &v)
+		if err != nil {
+			log.Println(err)
+		}
 	}
+
 	if r.Method == http.MethodPost {
 		r.ParseForm()
 		aboutme := r.Form.Get("aboutme")
 		log.Println(aboutme)
-		err := vm.UpdateAboutMe(username, aboutme)
-		if err != nil {
-			log.Println(err)
-			w.Write([]byte("Update aboutme failed!"))
+		if err := vm.UpdateAboutMe(username, aboutme); err != nil {
+			log.Println("update Aboutme error:", err)
+			w.Write([]byte("Error update aboutme"))
 			return
 		}
 		http.Redirect(w, r, fmt.Sprintf("/user/%s", username), http.StatusSeeOther)
@@ -162,7 +169,7 @@ func followHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := vm.Follow(sUser, pUser)
 	if err != nil {
-		log.Println("Follow err: ", err)
+		log.Println("Follow error:", err)
 		w.Write([]byte("Error in Follow"))
 		return
 	}
@@ -172,18 +179,97 @@ func followHandler(w http.ResponseWriter, r *http.Request) {
 func unFollowHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	pUser := vars["username"]
-	sUser, err := getSessionUser(r)
-	if err != nil {
-		log.Println("Error in Unfollow : ", err)
-		w.Write([]byte("Error in Unfollow"))
-		return
-	}
+	sUser, _ := getSessionUser(r)
 
-	err = vm.UnFollow(sUser, pUser)
+	err := vm.UnFollow(sUser, pUser)
 	if err != nil {
-		log.Println("Error in Unfollow : ", err)
-		w.Write([]byte("Error in Unfollow"))
+		log.Println("UnFollow error:", err)
+		w.Write([]byte("Error in UnFollow"))
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/user/%s", pUser), http.StatusSeeOther)
+}
+
+func exploreHandler(w http.ResponseWriter, r *http.Request) {
+	tpName := "explore.html"
+	vop := vm.ExploreViewModelOp{}
+	username, _ := getSessionUser(r)
+	page := getPage(r)
+	v := vop.GetVM(username, page, pageLimit)
+	templates[tpName].Execute(w, &v)
+}
+
+func resetPasswordRequestHandler(w http.ResponseWriter, r *http.Request) {
+	tpName := "reset_password_request.html"
+	vop := vm.ResetPasswordRequestViewModelOp{}
+	v := vop.GetVM()
+
+	if r.Method == http.MethodGet {
+		templates[tpName].Execute(w, &v)
+	}
+	if r.Method == http.MethodPost {
+		r.ParseForm()
+		email := r.Form.Get("email")
+
+		errs := checkResetPasswordRequest(email)
+		v.AddError(errs...)
+
+		if len(v.Errs) > 0 {
+			templates[tpName].Execute(w, &v)
+
+		} else {
+			log.Println("Send mail to", email)
+			vopEmail := vm.EmailViewModelOp{}
+			vEmail := vopEmail.GetVM(email)
+			var contentByte bytes.Buffer
+			tpl, _ := template.ParseFiles("templates/email.html")
+
+			if err := tpl.Execute(&contentByte, &vEmail); err != nil {
+				log.Println("Get Parse Template:", err)
+				w.Write([]byte("Error send email"))
+				return
+			}
+			content := contentByte.String()
+			go sendEmail(email, "Reset Password", content)
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+		}
+	}
+}
+
+func resetPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	token := vars["token"]
+	username, err := vm.CheckToken(token)
+	if err != nil {
+		w.Write([]byte("The token is no longer valid, please go to the login page."))
+	}
+
+	tpName := "reset_password.html"
+	vop := vm.ResetPasswordViewModelOp{}
+	v := vop.GetVM(token)
+
+	if r.Method == http.MethodGet {
+		templates[tpName].Execute(w, &v)
+	}
+
+	if r.Method == http.MethodPost {
+		log.Println("Reset password for ", username)
+		r.ParseForm()
+		pwd1 := r.Form.Get("pwd1")
+		pwd2 := r.Form.Get("pwd2")
+
+		errs := checkResetPassword(pwd1, pwd2)
+		v.AddError(errs...)
+
+		if len(v.Errs) > 0 {
+			templates[tpName].Execute(w, &v)
+		} else {
+			if err := vm.ResetUserPassword(username, pwd1); err != nil {
+				log.Println("reset User password error:", err)
+				w.Write([]byte("Error update user password in database"))
+				return
+			}
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+		}
+	}
 }

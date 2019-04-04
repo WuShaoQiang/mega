@@ -13,47 +13,49 @@ type ProfileViewModel struct {
 	FollowersCount int
 	FollowingCount int
 	ProfileUser    model.User
+	BasePageViewModel
 }
 
+// ProfileViewModelOp struct
 type ProfileViewModelOp struct{}
 
-func (ProfileViewModelOp) GetVM(sUser, pUser string) (ProfileViewModel, error) {
+// GetVM func
+func (ProfileViewModelOp) GetVM(sUser, pUser string, page, limit int) (ProfileViewModel, error) {
 	v := ProfileViewModel{}
 	v.SetTitle("Profile")
-	u1, err := model.GetUserByUsername(pUser)
+	u, err := model.GetUserByUsername(pUser)
 	if err != nil {
 		return v, err
 	}
-	posts, err := model.GetPostsByUserID(u1.ID)
-	if err != nil {
-		return v, err
-	}
-	v.ProfileUser = *u1
-	v.Posts = *posts
+	posts, total, _ := model.GetPostsByUserIDPageAndLimit(u.ID, page, limit)
+	v.ProfileUser = *u
 	v.Editable = (sUser == pUser)
-	//Not him/herself
+	v.SetBasePageViewModel(total, page, limit)
 	if !v.Editable {
-		v.IsFollow = u1.IsFollowedByUser(sUser)
+		v.IsFollow = u.IsFollowedByUser(sUser)
 	}
-	v.FollowersCount = u1.FollowersCount()
-	v.FollowingCount = u1.FollowingCount()
-	v.SetCurrentUser(sUser)
+	v.FollowersCount = u.FollowersCount()
+	v.FollowingCount = u.FollowingCount()
 
+	v.Posts = *posts
+	v.SetCurrentUser(sUser)
 	return v, nil
 }
 
-func Follow(sUser, pUser string) error {
-	u, err := model.GetUserByUsername(sUser)
+// Follow func : A follow B
+func Follow(a, b string) error {
+	u, err := model.GetUserByUsername(a)
 	if err != nil {
 		return err
 	}
-	return u.Follow(pUser)
+	return u.Follow(b)
 }
 
-func UnFollow(sUser, pUser string) error {
-	u, err := model.GetUserByUsername(sUser)
+// UnFollow func : A unfollow B
+func UnFollow(a, b string) error {
+	u, err := model.GetUserByUsername(a)
 	if err != nil {
 		return err
 	}
-	return u.Unfollow(pUser)
+	return u.Unfollow(b)
 }

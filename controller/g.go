@@ -16,7 +16,7 @@ var (
 )
 
 func init() {
-	templates = populateTemplates()
+	templates = PopulateTemplates()
 	store = sessions.NewCookieStore([]byte("secret"))
 	sessionName = "mega"
 	flashName = "go-flash"

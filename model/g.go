@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/WuShaoQiang/mega/config"
@@ -24,7 +23,7 @@ func ConnectToDB() *gorm.DB {
 	log.Println("Connet to db...")
 	db, err := gorm.Open("mysql", connectingStr)
 	if err != nil {
-		panic(fmt.Errorf("Failed to connect DB , err : %s", err))
+		panic("Failed to connect database")
 	}
 	db.SingularTable(true)
 	return db

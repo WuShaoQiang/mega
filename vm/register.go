@@ -21,11 +21,11 @@ func (RegisterViewModelOp) GetVM() RegisterViewModel {
 	return v
 }
 
-// CheckUserExist func : true --> exist, false --> not exist
+// CheckUserExist func
 func CheckUserExist(username string) bool {
 	_, err := model.GetUserByUsername(username)
 	if err != nil {
-		log.Println("Can't find user : ", username)
+		log.Println("Can not find username: ", username)
 		return false
 	}
 	return true

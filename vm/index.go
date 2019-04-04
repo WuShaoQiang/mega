@@ -1,8 +1,6 @@
 package vm
 
 import (
-	"fmt"
-
 	"github.com/WuShaoQiang/mega/model"
 )
 
@@ -11,26 +9,27 @@ type IndexViewModel struct {
 	BaseViewModel
 	Posts []model.Post
 	Flash string
+
+	BasePageViewModel
 }
 
 // IndexViewModelOp struct
 type IndexViewModelOp struct{}
 
-// GetVM func return a specific IndexViewModel
-func (IndexViewModelOp) GetVM(username, flash string) IndexViewModel {
-	u1, err := model.GetUserByUsername(username)
-	if err != nil {
-		fmt.Println(err)
-	}
-	posts, err := model.GetPostsByUserID(u1.ID)
-	if err != nil {
-		fmt.Println(err)
-	}
-	v := IndexViewModel{BaseViewModel{Title: "Homepage"}, *posts, flash}
+// GetVM func
+func (IndexViewModelOp) GetVM(username, flash string, page, limit int) IndexViewModel {
+	u, _ := model.GetUserByUsername(username)
+	posts, total, _ := u.FollowingPostsByPageAndLimit(page, limit)
+	v := IndexViewModel{}
+	v.SetTitle("Homepage")
+	v.Posts = *posts
+	v.Flash = flash
+	v.SetBasePageViewModel(total, page, limit)
 	v.SetCurrentUser(username)
 	return v
 }
 
+// CreatePost func
 func CreatePost(username, post string) error {
 	u, _ := model.GetUserByUsername(username)
 	return u.CreatePost(post)
