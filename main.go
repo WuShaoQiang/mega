@@ -16,5 +16,6 @@ func main() {
 	// Setup Controller
 	controller.Startup()
 
-	http.ListenAndServe(":8000", nil)
+	// http.ListenAndServe(":8000", nil)
+	http.ListenAndServeTLS(":8000", "cert.pem", "key.pem", nil)
 }

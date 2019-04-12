@@ -13,7 +13,6 @@ func init() {
 
 func getConfig(projectName string) {
 	viper.SetConfigName("config")
-
 	viper.AddConfigPath(".")
 
 	err := viper.ReadInConfig()
